@@ -1,3 +1,9 @@
+#my data sets
+*.configs
+*.color
+*.depth
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
