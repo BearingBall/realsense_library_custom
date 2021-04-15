@@ -4,6 +4,7 @@ import cv2
 import os
 import pickle
 
+
 def takePhoto(fileName):
     pipeline = rs.pipeline()
     config = rs.config()
@@ -170,13 +171,16 @@ def showPhoto(fileName):
             currentLabel = key-49
         if (key == 122 and len(configs) >6):
             configs.pop()
-           
 
 
-def getData(fileName):
-    i=5
-    currentLabel = 0
-    figure = np.zeros(9)
+            
+def getDataVector(fileName):
+    i=0
+    pictures = np.zeros(0)
+    pictures = pictures.reshape((0,480,640,4))
+    labels = np.zeros(0)
+    labels = labels.reshape((0,480,640,1))
+    
     while True:
         file = open(fileName+"/"+str(i)+".configs", "rb")
         configs = pickle.load(file)
@@ -194,35 +198,32 @@ def getData(fileName):
 
         bg_removed = bg_removed.reshape((int(configs[0]),int(configs[1]),int(configs[2])))
         depth_image = depth_image.reshape((int(configs[3]),int(configs[4]),1))
-        label_image = np.zeros(int(configs[3])*int(configs[4]))
+        label_image = np.zeros(int(configs[3])*int(configs[4]), dtype=np.int8)
         label_image = label_image.reshape((int(configs[3]),int(configs[4]),1))
         
-        depth_image_3d = np.dstack((depth_image,depth_image,depth_image))
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
         
-        label_colormap = cv2.applyColorMap(cv2.convertScaleAbs(label_image, alpha=0.03), cv2.COLORMAP_JET)
         
         for j in range(6, len(configs)):
-            #cv2.rectangle(images,(int(configs[j][0]),int(configs[j][1])),(int(configs[j][2]),int(configs[j][3])), (255,0,0),1)
             pts = np.array([[int(configs[j][0]),int(configs[j][1])],[int(configs[j][2]),int(configs[j][3])],[int(configs[j][4]),int(configs[j][5])],[int(configs[j][6]),int(configs[j][7])]], np.int32)
             pts = pts.reshape((-1,1,2))
-            cv2.fillPoly(label_colormap,[pts],(int(configs[j][8])*40,255-int(configs[j][8])*40,255))
-            cv2.polylines(label_colormap,[pts],True, (int(configs[j][8])*40,255-int(configs[j][8])*40,255),20)
-        cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
+            cv2.fillPoly(label_image, [pts], color=(1+int(configs[j][8])))
+            cv2.polylines(label_image,[pts], True, (1+int(configs[j][8])),15)
         
         
+        tmp = np.zeros(480*640*4)
+        tmp = tmp.reshape((480,640,4))
+        for k in range(480):
+            for j in range(640):
+                tmp[k][j][0] = bg_removed[k][j][0]
+                tmp[k][j][1] = bg_removed[k][j][1]
+                tmp[k][j][2] = bg_removed[k][j][2]
+                tmp[k][j][3] = depth_image[k][j]
+        pictures = np.append(pictures,tmp)
+        labels = np.append(labels, label_image)
         
-        images = np.hstack((bg_removed, depth_colormap, label_colormap))
-        images = images.astype(np.uint8)  
-        
-
-        cv2.putText(images, fileName+"_"+str(i) , (900, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255),2)
-        cv2.imshow('Align Example',  images)
-        
-        key = cv2.waitKey(1)
-        if key & 0xFF == ord('q') or key == 27:
-            cv2.destroyAllWindows()
-            file = open(fileName+"/"+str(i)+".configs", "wb")
-            pickle.dump(configs, file)
-            file.close()
+        i+=1
+        if (not os.path.isfile(fileName+"/"+str(i)+".configs")):
             break
+    pictures = pictures.reshape((i,480,640,4))
+    labels = labels.reshape((i,480,640,1))
+    return pictures, labels
