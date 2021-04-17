@@ -15,6 +15,12 @@ class MyDataset(Dataset):
             image = self.transform(self.images[index])
         else:
             image = self.images[index]
-        return (image, self.labels[index])
+        if (self.transform):
+            label = self.transform(self.labels[index])
+        else:
+            label = self.labels[index]    
+            
+            
+        return (image, label)
         
         

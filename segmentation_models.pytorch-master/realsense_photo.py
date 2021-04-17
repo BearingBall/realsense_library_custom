@@ -172,14 +172,35 @@ def showPhoto(fileName):
         if (key == 122 and len(configs) >6):
             configs.pop()
 
+def drawLabelMap(image, labelMap):
+    i=0
+    labelMap_3d = np.dstack((labelMap*30,100-labelMap*10,labelMap))
+    print(image.shape)
+    print(labelMap_3d.shape)
+    images = np.hstack((image, labelMap_3d))
+    images = images.astype(np.uint8)
+            
+    cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
+    cv2.imshow('Align Example',  images)
+    while True:
+
+        key = cv2.waitKey(1)
+        if key & 0xFF == ord('q') or key == 27:
+            cv2.destroyAllWindows()
+            break            
 
             
-def getDataVector(fileName):
-    i=0
+def getDataVector(fileName, N):
+    i = 0
+    if (N == -1):
+        i = 0
+    else:
+        i = 10*(N)
+
     pictures = np.zeros(0)
-    pictures = pictures.reshape((0,480,640,4))
+    pictures = pictures.reshape((0,4,480,640))
     labels = np.zeros(0)
-    labels = labels.reshape((0,480,640,1))
+    labels = labels.reshape((0,1,480,640))
     
     while True:
         file = open(fileName+"/"+str(i)+".configs", "rb")
@@ -209,21 +230,55 @@ def getDataVector(fileName):
             cv2.fillPoly(label_image, [pts], color=(1+int(configs[j][8])))
             cv2.polylines(label_image,[pts], True, (1+int(configs[j][8])),15)
         
-        
         tmp = np.zeros(480*640*4)
         tmp = tmp.reshape((480,640,4))
+        tmp2 = np.zeros(480*640*1)
+        tmp2 = tmp2.reshape((480,640,1))
         for k in range(480):
             for j in range(640):
                 tmp[k][j][0] = bg_removed[k][j][0]
                 tmp[k][j][1] = bg_removed[k][j][1]
                 tmp[k][j][2] = bg_removed[k][j][2]
                 tmp[k][j][3] = depth_image[k][j]
+                tmp2[k][j][0] = label_image[k][j]
         pictures = np.append(pictures,tmp)
-        labels = np.append(labels, label_image)
+        labels = np.append(labels, tmp2)
         
         i+=1
         if (not os.path.isfile(fileName+"/"+str(i)+".configs")):
             break
-    pictures = pictures.reshape((i,480,640,4))
-    labels = labels.reshape((i,480,640,1))
+        if (N != -1 and i%10 == 0):
+            break
+        
+    pictures = pictures.reshape((i-10*N,480,640,4))
+    labels = labels.reshape((i - 10*N,480,640))
     return pictures, labels
+
+import CustomDataset as cdset
+from torchvision import transforms
+from torch.utils.data import DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
+import torch
+
+def makeLoader(pictures, labels):
+    dataset = cdset.MyDataset(pictures, labels, transform = transforms.ToTensor())
+    batch_size = 64
+
+    data_size = len(dataset)
+    validation_split = .2
+    split = int(np.floor(validation_split * data_size))
+    indices = list(range(data_size))
+    np.random.shuffle(indices)
+    
+    train_indices, val_indices = indices[split:], indices[:split]
+    
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SubsetRandomSampler(val_indices)
+    
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, 
+                                               sampler=train_sampler)
+    val_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                             sampler=val_sampler)
+    return train_loader, val_loader
+
+
