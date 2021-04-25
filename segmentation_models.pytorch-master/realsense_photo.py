@@ -142,7 +142,7 @@ def showPhoto(fileName):
         for j in range(len(labels)):
             cv2.putText(images, labels[j] , (650, 40+j*40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0 if j == currentLabel else 255, 0, 255),2)
             
-        cv2.putText(images, fileName+"_"+str(i) , (900, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255),2)
+        cv2.putText(images, str(i) , (650, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255),2)
         cv2.imshow('Align Example',  images)
         
         key = cv2.waitKey(1)
@@ -172,113 +172,30 @@ def showPhoto(fileName):
         if (key == 122 and len(configs) >6):
             configs.pop()
 
-def drawLabelMap(image, labelMap):
-    i=0
-    labelMap_3d = np.dstack((labelMap*30,100-labelMap*10,labelMap))
-    print(image.shape)
-    print(labelMap_3d.shape)
-    images = np.hstack((image, labelMap_3d))
-    images = images.astype(np.uint8)
             
-    cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
-    cv2.imshow('Align Example',  images)
+def drawLabelMap(images, labelMaps, labelPredMaps):
+    i = 0
     while True:
-
+        image = images[i]
+        labelMap = labelMaps[i]
+        labelPredMap = labelPredMaps[i]
+        
+        labelMap_3d = np.dstack((labelMap*30,100-labelMap*10,labelMap))
+        labelPredMap_3d = np.dstack((labelPredMap*30,100-labelPredMap*10,labelPredMap))
+        #print(image.shape)
+        #print(labelMap_3d.shape)
+        screen = np.hstack((image, labelMap_3d, labelPredMap_3d))
+        screen = screen.astype(np.uint8)
+                
+        cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
+        cv2.imshow('Align Example',  screen)
         key = cv2.waitKey(1)
         if key & 0xFF == ord('q') or key == 27:
             cv2.destroyAllWindows()
-            break            
-
-            
-def getDataVector(fileName, N):
-    i = 0
-    if (N == -1):
-        i = 0
-    else:
-        i = 10*(N)
-
-    pictures = np.zeros(0)
-    pictures = pictures.reshape((0,4,480,640))
-    labels = np.zeros(0)
-    labels = labels.reshape((0,1,480,640))
-    
-    while True:
-        file = open(fileName+"/"+str(i)+".configs", "rb")
-        configs = pickle.load(file)
-        file.close()
-        file = open(fileName+"/"+str(i)+".color", "rb")
-        bg_removed = pickle.load(file)
-        file.close()
-        file = open(fileName+"/"+str(i)+".depth", "rb")
-        depth_image = pickle.load(file)
-        file.close()
-        
-        depth_scale = configs[5]
-        clipping_distance_in_meters = 1 #1 meter
-        clipping_distance = clipping_distance_in_meters / depth_scale
-
-        bg_removed = bg_removed.reshape((int(configs[0]),int(configs[1]),int(configs[2])))
-        depth_image = depth_image.reshape((int(configs[3]),int(configs[4]),1))
-        label_image = np.zeros(int(configs[3])*int(configs[4]), dtype=np.int8)
-        label_image = label_image.reshape((int(configs[3]),int(configs[4]),1))
-        
-        
-        
-        for j in range(6, len(configs)):
-            pts = np.array([[int(configs[j][0]),int(configs[j][1])],[int(configs[j][2]),int(configs[j][3])],[int(configs[j][4]),int(configs[j][5])],[int(configs[j][6]),int(configs[j][7])]], np.int32)
-            pts = pts.reshape((-1,1,2))
-            cv2.fillPoly(label_image, [pts], color=(1+int(configs[j][8])))
-            cv2.polylines(label_image,[pts], True, (1+int(configs[j][8])),15)
-        
-        tmp = np.zeros(480*640*4)
-        tmp = tmp.reshape((480,640,4))
-        tmp2 = np.zeros(480*640*1)
-        tmp2 = tmp2.reshape((480,640,1))
-        for k in range(480):
-            for j in range(640):
-                tmp[k][j][0] = bg_removed[k][j][0]
-                tmp[k][j][1] = bg_removed[k][j][1]
-                tmp[k][j][2] = bg_removed[k][j][2]
-                tmp[k][j][3] = depth_image[k][j]
-                tmp2[k][j][0] = label_image[k][j]
-        pictures = np.append(pictures,tmp)
-        labels = np.append(labels, tmp2)
-        
-        i+=1
-        if (not os.path.isfile(fileName+"/"+str(i)+".configs")):
-            break
-        if (N != -1 and i%10 == 0):
-            break
-        
-    pictures = pictures.reshape((i-10*N,480,640,4))
-    labels = labels.reshape((i - 10*N,480,640))
-    return pictures, labels
-
-import CustomDataset as cdset
-from torchvision import transforms
-from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
-import torch
-
-def makeLoader(pictures, labels):
-    dataset = cdset.MyDataset(pictures, labels, transform = transforms.ToTensor())
-    batch_size = 64
-
-    data_size = len(dataset)
-    validation_split = .2
-    split = int(np.floor(validation_split * data_size))
-    indices = list(range(data_size))
-    np.random.shuffle(indices)
-    
-    train_indices, val_indices = indices[split:], indices[:split]
-    
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)
-    
-    train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, 
-                                               sampler=train_sampler)
-    val_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
-                                             sampler=val_sampler)
-    return train_loader, val_loader
+            break    
+        if (key == 46)and(i+1 < images.shape[0]):
+            i+=1
+        if (key == 44)and(i-1 > 0):
+            i-=1
 
 
