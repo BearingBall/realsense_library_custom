@@ -83,7 +83,7 @@ def showPhoto(fileName):
     i=0
     isRefresh = True
     currentLabel = 0
-    labels = ["floor" , "roof", "wall", "door", "obstacle", "stairUp", "stairDown"]
+    labels = ["floor" , "roof", "wall", "door", "obstacle", "stairUp", "stairDown", "blur"]
     figure = np.zeros(9)
     while True:
         if isRefresh:
@@ -167,7 +167,7 @@ def showPhoto(fileName):
             file.close()
             i-=1
             isRefresh = True
-        if (key < 56 and key > 48):
+        if (key < 57 and key > 48):
             currentLabel = key-49
         if (key == 122 and len(configs) >6):
             configs.pop()
@@ -180,8 +180,8 @@ def drawLabelMap(images, labelMaps, labelPredMaps):
         labelMap = labelMaps[i]
         labelPredMap = labelPredMaps[i]
         
-        labelMap_3d = np.dstack((labelMap*30,100-labelMap*10,labelMap))
-        labelPredMap_3d = np.dstack((labelPredMap*30,100-labelPredMap*10,labelPredMap))
+        labelMap_3d = np.dstack((labelMap*25,100-labelMap*10,labelMap*15))
+        labelPredMap_3d = np.dstack((labelPredMap*25,100-labelPredMap*10,labelPredMap*15))
         #print(image.shape)
         #print(labelMap_3d.shape)
         screen = np.hstack((image, labelMap_3d, labelPredMap_3d))
